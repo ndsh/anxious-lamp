@@ -34,7 +34,7 @@ long interval_anxious = 100;           // interval at which to ploing (milliseco
 void setup() {
     Serial.begin(9600); // baud rate, communication with computer over USB
     // set pinModes
-    pinMode(proxiPin, INPUT);
+    pinMode(proxiPin, INPUT); // activate PULLUP? need to test
     pinMode(solenoidPin, OUTPUT);
     aktor.Attach(3);
     delay(500);
@@ -49,13 +49,15 @@ void loop() {
     float median = samples.getMedian();
     median = median/58; // conversion to cm, approximation
 
-    if(median <= zone_panic) {
+    if(median <= zone_panic) 
+    {
          aktor.Update(0, millis());
          if( (currentMillis - previousMillis) > interval_anxious) {
             previousMillis = currentMillis;
             ploing(solenoidPin);
         }
-    } else if(median <= zone_anxiety) {
+    } else if(median <= zone_anxiety) 
+    {
         float fadeIn = map(median, zone_panic, zone_anxiety, interval_anxious, interval_normal);
         float angleIn = map(median, zone_panic, zone_anxiety, 30, 180);
 
@@ -69,7 +71,8 @@ void loop() {
             previousMillis = currentMillis;
             ploing(solenoidPin);
         }
-    } else { 
+    } else 
+    { 
         aktor.Update(180, millis());
     }
 } // end loop
@@ -78,7 +81,7 @@ void ploing(int pin) {
     digitalWrite(pin, LOW);
     delay(40);
     digitalWrite(pin, HIGH);
-    delay(500);
+    delay(50);
     digitalWrite(pin, LOW);
 }
 

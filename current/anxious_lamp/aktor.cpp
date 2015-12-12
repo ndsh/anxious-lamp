@@ -1,4 +1,4 @@
-//#include <Arduino.h>
+//#include <Arduino.h> ??? should be able to deal without this
 #include <Servo.h>
 
 class Aktor {
