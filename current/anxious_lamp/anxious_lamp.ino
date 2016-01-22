@@ -1,15 +1,18 @@
 #include "RunningMedian.h"
 #include <Servo.h>
 #include "aktor.cpp"
-
-// objects
-RunningMedian samples = RunningMedian(3); // how many samples, lower number = faster
-Aktor aktor(15);
-
+#include "flasher.cpp"
 
 // assign pins to variables
+const int servoPin = 3;
+const int mosfetPin = 5;
 const int proxiPin = 10;
-const int solenoidPin = 5;
+
+
+// objects
+RunningMedian samples = RunningMedian(23); // how many samples, lower number = faster
+Aktor aktor(15);
+Flasher mosfet(mosfetPin, 20, 20);
 
 // sensor values
 long pulse;
@@ -29,14 +32,16 @@ long interval_anxious = 100;           // interval at which to ploing (milliseco
  * 100 = anxious
  */
 
+long previousValue = 0; // for metafilter
+
 
 
 void setup() {
     Serial.begin(9600); // baud rate, communication with computer over USB
     // set pinModes
     pinMode(proxiPin, INPUT); // activate PULLUP? need to test
-    pinMode(solenoidPin, OUTPUT);
-    aktor.Attach(3);
+    pinMode(mosfetPin, OUTPUT);
+    aktor.Attach(servoPin);
     delay(500);
 }
 
@@ -48,33 +53,51 @@ void loop() {
 
     float median = samples.getMedian();
     median = median/58; // conversion to cm, approximation
+    Serial.println(median);
 
-    if(median <= zone_panic) 
-    {
-         aktor.Update(0, millis());
-         if( (currentMillis - previousMillis) > interval_anxious) {
-            previousMillis = currentMillis;
-            ploing(solenoidPin);
-        }
-    } else if(median <= zone_anxiety) 
-    {
-        float fadeIn = map(median, zone_panic, zone_anxiety, interval_anxious, interval_normal);
-        float angleIn = map(median, zone_panic, zone_anxiety, 30, 180);
+    // metafilter hier
+    // special case, if a low value follows a high value
+    if(median > previousValue) {
 
-        for(int i = angleIn; i<180; i++) {
-            aktor.Update(i, millis());
+
+        if(median <= zone_panic) 
+        {
+            mosfet.Go();
+            Serial.println("## (panic zone): ");
+             aktor.Update(0, millis());
+             if( (currentMillis - previousMillis) > interval_anxious) {
+                previousMillis = currentMillis;
+                // ploing(mosfetPin);
+                mosfet.Update();
+            }
+
+        } else if(median <= zone_anxiety) 
+        {
+            mosfet.Go();
+            Serial.println("## (anxiety zone): ");
+            float fadeIn = map(median, zone_panic, zone_anxiety, interval_anxious, interval_normal);
+            float angleIn = map(median, zone_panic, zone_anxiety, 30, 180);
+
+            for(int i = angleIn; i<180; i++) {
+                aktor.Update(i, millis());
+            }
+            for(int i = 180; i>=angleIn; i--) {
+                aktor.Update(i, millis());
+            }
+            if( (currentMillis - previousMillis) > fadeIn) {
+                previousMillis = currentMillis;
+                // ploing(mosfetPin);
+                mosfet.Update();
+            }
+        } else 
+        { 
+            mosfet.Stop();
+            mosfet.Update();
+            Serial.println("## (all is cool zone): ");
+            aktor.Update(180, millis());
         }
-        for(int i = 180; i>=angleIn; i--) {
-            aktor.Update(i, millis());
-        }
-        if( (currentMillis - previousMillis) > fadeIn) {
-            previousMillis = currentMillis;
-            ploing(solenoidPin);
-        }
-    } else 
-    { 
-        aktor.Update(180, millis());
     }
+    previousValue = median;
 } // end loop
 
 void ploing(int pin) {
