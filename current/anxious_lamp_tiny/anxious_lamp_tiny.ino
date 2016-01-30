@@ -1,6 +1,7 @@
 #include "RunningMedian.h"
 #include "SoftwareServo.h" 
 #include "aktor.cpp"
+#include "rumble.cpp"
 #include "flasher.cpp"
 
 
@@ -31,7 +32,8 @@ int stepsToRest = 6;
 // objects
 RunningMedian samples = RunningMedian(11); // how many samples, lower number = faster
 Aktor aktor(15);
-Flasher mosfet(mosfetPin, 200, 200);
+Rumble mosfet(mosfetPin, 20);
+//Flasher mosfet(mosfetPin, 200, 200);
 
 // sensor values
 long pulse;
@@ -72,6 +74,7 @@ void setup() {
 
 // main loop where the action takes place
 void loop() {
+    SoftwareServo::refresh();
     unsigned long currentMillis = millis();
     pulse = pulseIn(proxiPin, HIGH, 30000);
     samples.add(pulse);
@@ -88,19 +91,19 @@ void loop() {
         if(median <= zone_panic) 
         {
             restingCounter = 0;
-            mosfet.Go();
+           // mosfet.Go();
             //Serial.println("## (panic zone): ");
              aktor.Update(0, millis());
              if( (currentMillis - previousMillis) > interval_anxious) {
                 previousMillis = currentMillis;
                 // ploing(mosfetPin);
-                mosfet.Update();
+                mosfet.Update(125, millis());
             }
 
         } else if(median <= zone_anxiety) 
         {
             restingCounter = 0;
-            mosfet.Go();
+//            mosfet.Go();
             //Serial.println("## (anxiety zone): ");
             float fadeIn = map(median, zone_panic, zone_anxiety, interval_anxious, interval_normal);
             float angleIn = map(median, zone_panic, zone_anxiety, 30, maxAngle);
@@ -114,20 +117,20 @@ void loop() {
             if( (currentMillis - previousMillis) > fadeIn) {
                 previousMillis = currentMillis;
                 // ploing(mosfetPin);
-                mosfet.Update();
+                mosfet.Update(255, millis());
             }
         } else 
         { 
-            mosfet.Stop();
-            mosfet.Update();
+//            mosfet.Stop();
+            mosfet.Update(0, millis());
             if(restingCounter < stepsToRest) {
              aktor.Update(maxAngle, millis());
              restingCounter++;
-            }
-         
+            }         
         }
     }
     previousValue = median;
+    SoftwareServo::refresh();
 } // end loop
 
 
